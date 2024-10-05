@@ -23,9 +23,22 @@ impl<'a> Display for EnvOp<'a> {
     }
 }
 
+impl Nushell {
+  fn escape(s: &str) -> String {
+    if !s.contains(|ch| match ch {
+        '\r' | '\n' | '"' | ',' => true,
+        _ => false,
+    }) {
+      return s.to_owned();
+    }
+
+    return format!("\"{}\"", s.replace('"', "\"\""));
+  }
+}
+
 impl Shell for Nushell {
     fn activate(&self, exe: &Path, flags: String) -> String {
-        let exe = exe.display();
+        let exe = exe.to_string_lossy().replace('\\', r#"\\"#);
 
         formatdoc! {r#"
           export-env {{
@@ -88,9 +101,8 @@ impl Shell for Nushell {
     }
 
     fn set_env(&self, k: &str, v: &str) -> String {
-        let k = shell_escape::unix::escape(k.into());
-        let v = shell_escape::unix::escape(v.into());
-        let v = v.replace('\'', "");
+        let k = Nushell::escape(k.into());
+        let v =  Nushell::escape(v.into());
 
         EnvOp::Set { key: &k, val: &v }.to_string()
     }
